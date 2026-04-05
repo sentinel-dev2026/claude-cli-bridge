@@ -1,29 +1,62 @@
 # claude-cli-bridge
 
-OpenClaw 向けの Claude CLI ブリッジプラグインです。  
-`claude` CLI を必要なときだけ起動し、`stream-json` 経由で OpenClaw から対話・状態確認・停止を行えます。
+OpenClaw から Claude CLI を呼び出すためのブリッジプラグインです。  
+人が OpenClaw に依頼し、**必要なときだけ** OpenClaw 側で `claude` CLI を起動して処理させる、という使い方を想定しています。
 
-日本語ベースのプラグインなので、README も日本語を主として記載しています。英語版は `README_en.md` を参照してください。
+このリポジトリは日本語ベースです。英語版の簡易説明は `README_en.md` を参照してください。
 
-## 概要
+## これは何か
 
-このプラグインは、Claude Code CLI を OpenClaw から扱いやすくするための薄いブリッジです。
+`claude-cli-bridge` は、Claude Code CLI を OpenClaw のツールとして扱うためのプラグインです。
 
-以下のような用途を想定しています。
+ユーザーが OpenClaw に対して、たとえば次のように依頼したときに使われます。
 
-- Claude CLI をオンデマンドで起動したい
-- 1つの CLI セッションに対して複数ターンやり取りしたい
-- 一定時間アイドルなら自動停止したい
-- OpenClaw のツールとして Claude を呼び出したい
+- 「Claude でこのコードをレビューして」
+- 「この実装を Claude に考えさせて」
+- 「複雑なので Claude CLI を起動して進めて」
+- 「長めの分析を Claude に回して」
 
-## できること
+つまり、**人が直接このプラグインを操作するというより、OpenClaw が裏側で Claude CLI を使うための部品**です。
 
-- `claude_start` で Claude CLI プロセスを起動
-- `claude_send` で実行中セッションにメッセージ送信
-- `claude_status` で状態確認
-- `claude_stop` で明示停止
-- アイドルタイムアウトによる自動停止
-- system prompt / model の指定
+## どう使われるか（ユーザー視点）
+
+このプラグインを入れると、ユーザーは普段どおり OpenClaw に話しかけるだけでOKです。
+
+たとえば:
+
+- 「このバグ、Claude で深めに見て」
+- 「このファイル群を Claude に整理させて」
+- 「この設計案を Claude でレビューして」
+
+すると OpenClaw 側で必要に応じて:
+
+1. `claude_start` で Claude CLI を起動
+2. `claude_send` で指示を送信
+3. 必要なら複数ターンやり取り
+4. 終わったら `claude_stop` で停止
+
+という流れが内部で実行されます。
+
+## どういう時に便利か
+
+このプラグインは、特に次のような場面で役立ちます。
+
+- Claude 品質の推論や長文整理を使いたい
+- 複雑なコード実装やレビューを Claude に任せたい
+- OpenClaw から Claude CLI を毎回手動起動せず使いたい
+- 1回きりではなく、同じ Claude セッションで数ターンやり取りしたい
+
+## 導入方法
+
+### 1. プラグインを配置する
+
+このディレクトリを OpenClaw のプラグインディレクトリに配置します。
+
+例:
+
+```text
+~/.openclaw/plugins/claude-cli-bridge/
+```
 
 ## ディレクトリ構成
 
@@ -37,40 +70,60 @@ claude-cli-bridge/
         └── SKILL.md
 ```
 
-## 含まれるファイル
+### 2. OpenClaw から読み込める状態にする
 
-- `index.js`  
-  プラグイン本体です。Claude CLI プロセスの起動、JSON ストリーム処理、停止、OpenClaw ツール登録を行います。
+OpenClaw 側のプラグイン設定に応じて有効化します。  
+読み込み方法は OpenClaw のバージョンや構成に依存するため、利用中の環境に合わせて設定してください。
 
-- `openclaw.plugin.json`  
-  プラグインのメタデータと設定スキーマです。
+### 3. Claude CLI を使える状態にする
 
-- `skills/claude-assist/SKILL.md`  
-  Claude CLI をどういう場面で使うか、いつ停止するかなどの運用ガイドです。
+このプラグインは `claude` コマンドを実行するため、事前に Claude CLI が入っていて `PATH` から見えている必要があります。
 
-## 必要条件
+必要条件:
 
 - OpenClaw が動作していること
-- `claude` CLI がインストール済みで、`PATH` から実行できること
+- `claude` CLI がインストール済みであること
 - Claude CLI が `stream-json` 入出力を利用できること
 
-## 使い方
+## OpenClaw 経由での利用イメージ
 
-### 1. プラグインを配置する
+### 例1: コードレビューを頼む
 
-OpenClaw のプラグインディレクトリにこのフォルダを配置します。
+ユーザー:
 
-### 2. プラグインを読み込む
+> この変更を Claude でレビューして
 
-OpenClaw 側のプラグイン設定に応じて読み込みます。  
-設定方法は利用している OpenClaw 環境に合わせてください。
+OpenClaw 内部:
 
-### 3. ツールを呼び出す
+- `claude_start`
+- `claude_send` にレビュー依頼を渡す
+- 返答を受けて必要なら追加質問
+- 完了後に `claude_stop`
 
-#### `claude_start`
+### 例2: 複雑な実装を Claude に回す
+
+ユーザー:
+
+> この処理、Claude に考えさせながら進めて
+
+OpenClaw は必要に応じて Claude CLI セッションを維持しながら複数ターンで処理できます。
+
+### 例3: 長文の整理や分析
+
+ユーザー:
+
+> この仕様書を Claude で要約して、論点も整理して
+
+Claude に長文処理を任せたいときの裏側コンポーネントとして使えます。
+
+## エージェント / 実装者向けの使い方
+
+この節は、OpenClaw 側でこのプラグインを呼ぶ人向けです。
+
+### `claude_start`
 Claude CLI を起動します。
 
-指定できる主なパラメータ:
+主なパラメータ:
 
 - `systemPrompt`: セッションのシステムプロンプト
 - `model`: 使用モデル名
@@ -86,8 +139,8 @@ Claude CLI を起動します。
 }
 ```
 
-#### `claude_send`
-起動中の Claude CLI セッションにメッセージを送ります。
+### `claude_send`
+起動中セッションにメッセージを送ります。
 
 例:
 
@@ -97,11 +150,18 @@ Claude CLI を起動します。
 }
 ```
 
-#### `claude_status`
-現在のプロセス状態、セッションID、アイドル時間、自動停止設定を確認します。
+### `claude_status`
+現在の状態を確認します。
 
-#### `claude_stop`
-実行中の Claude CLI を停止します。
+確認できる内容:
+
+- 稼働中か停止中か
+- セッションID
+- アイドル時間
+- 自動停止設定
+
+### `claude_stop`
+実行中の Claude CLI プロセスを停止します。
 
 ## ツール一覧
 
@@ -112,11 +172,22 @@ Claude CLI を起動します。
 
 ## 設定項目
 
-`openclaw.plugin.json` では、以下の設定を受け取れるようになっています。
+`openclaw.plugin.json` では、以下の設定を受け取れます。
 
 - `systemPrompt` — Claude CLI セッション用のシステムプロンプト
 - `idleTimeoutMinutes` — 無操作時に自動停止するまでの分数
 - `model` — 使用する Claude モデル名
+
+## 含まれるファイル
+
+- `index.js`  
+  プラグイン本体です。Claude CLI プロセスの起動、JSON ストリーム処理、停止、OpenClaw ツール登録を行います。
+
+- `openclaw.plugin.json`  
+  プラグインのメタデータと設定スキーマです。
+
+- `skills/claude-assist/SKILL.md`  
+  Claude CLI をどういう場面で使うか、いつ停止するかなどの運用ガイドです。
 
 ## 実装メモ
 

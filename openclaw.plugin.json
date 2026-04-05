@@ -1,0 +1,38 @@
+{
+  "id": "claude-cli-bridge",
+  "name": "Claude CLI Bridge",
+  "description": "On-demand Claude Code CLI process management via stream-json. Start, communicate with, and stop Claude CLI sessions.",
+  "skills": [
+    "./skills"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "systemPrompt": {
+        "type": "string"
+      },
+      "idleTimeoutMinutes": {
+        "type": "number",
+        "minimum": 1
+      },
+      "model": {
+        "type": "string"
+      }
+    }
+  },
+  "uiHints": {
+    "systemPrompt": {
+      "label": "System Prompt",
+      "help": "System prompt for the Claude CLI session."
+    },
+    "idleTimeoutMinutes": {
+      "label": "Idle Timeout (minutes)",
+      "help": "Auto-kill the CLI process after this many minutes of inactivity. Default: 10."
+    },
+    "model": {
+      "label": "Model",
+      "help": "Claude model to use (e.g. claude-opus-4-6). Leave empty for default."
+    }
+  }
+}
